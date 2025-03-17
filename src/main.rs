@@ -1,12 +1,12 @@
 use log::info;
 use log4rs;
 use std::io::{self, BufRead, BufReader, BufWriter, Cursor, Read, Write};
-
-use serde::{Deserialize, Serialize};
+use lsp::*;
 mod lexer;
 mod rpc;
-
+mod lsp;
 fn main() {
+    let mut state=state::State::new();
     log4rs::init_file("/home/strozzi/projects/lsp/log4rs.yml", Default::default()).unwrap();
     info!("Server has started\n");
     let stdin = io::stdin();
@@ -19,7 +19,6 @@ InitializeParams { client_info: ClientInfo { name: \"Neovim\", version: \"0.10.3
     let mut handle = BufReader::new(stdin);
     let mut writer = BufWriter::new(stdout);
     loop {
-
         header.clear();
         let _red = handle.read_until(b'\n', &mut header).unwrap();
 
@@ -38,22 +37,22 @@ InitializeParams { client_info: ClientInfo { name: \"Neovim\", version: \"0.10.3
             //info!("Number: {:?} at index {:?}\n", length, index2);
             let mut data = vec![0u8; length as usize];
             let _ = handle.read_exact(&mut data);
+            show_json(&data[..]);
             let req = parse_request(&data);
-
-            info!(" Method: '{}'\n",req.method);
-            if req.method.eq("initialize"){
-                let res = new_init_response(req.id);
-                let reres = rpc::encode(res);
-                let _ = writer.write(&reres.as_bytes()).unwrap();
-                let _ =writer.flush();
-                info!("Response sent: \n");
+            let resp = manage_request(req,&mut state);
+            if let Some(r) = resp {
+                let _ = writer.write(&r.as_bytes()).unwrap();
+                let _ = writer.flush();
+                info!("Response sent\n");
             }
             data.clear();
             header.clear();
-
         }
-
     }
+}
+fn show_json(str: &[u8]) {
+    info!("JSON:\n");
+    info!("{:?}\n", String::from_utf8_lossy(str));
 }
 
 fn parse_request(data: &[u8]) -> Request {
@@ -61,81 +60,46 @@ fn parse_request(data: &[u8]) -> Request {
     return req;
 }
 
-#[derive(Serialize, Deserialize, Debug)]
-struct Request {
-    jsonrpc: String,
-    id: Option<u32>,
-    method: String,
-    params: InitializeParams,
-}
 
-#[derive(Serialize, Deserialize, Debug)]
-struct Response {
-    jsonrpc: String,
-    id: Option<u32>,
-    result: InitializeResult,
-    //Result Error
+fn manage_request(req: Request, state: &mut state::State) -> Option<String> {
+    info!("Method: '{}'\n", req.method);
+    match &req.method[..] {
+        "textDocument/didOpen" =>{
+            let td=req.params.text_document?;
+            let uri=td.uri;
+            let text=td.text?;
+            info!("File opened: {}\n",uri);
+            state.open_document(uri,text);
+            None
+        },
+        "initialize" => {
+            let res = InitializeResponse::new(req.id);
+            let r = rpc::encode(res);
+            Some(r)
+        },
+        "initialized"=>{
+            info!("Initialized\n");
+            None
+        },
+        "textDocument/didChange" =>{
+            let td=req.params.text_document?;
+            let uri=td.uri;
+            let text=req.params.text_document_change?;
+            info!("File changed: {}\n",uri);
+            state.edit_document(uri,text.as_slice()[0].text.clone());
+            None
+        },
+        "textDocument/hover" =>{
+            info!("Hover\n");
+            let pos=req.params.position?;
+            let hover=state.hover(pos)?;
+            let hover_resp=HoverResponse::new(req.id,hover);
+            let r=rpc::encode(hover_resp);
+            Some(r)
+        },
+        _ => None,
+    }
 }
-#[derive(Serialize, Deserialize, Debug)]
-struct Notification {
-    jsonrpc: String,
-    method: String
-}
-#[derive(Serialize, Deserialize, Debug)]
-struct InitializeParams {
-    #[serde(rename = "clientInfo")]
-    client_info: Option<ClientInfo>,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-struct ClientInfo {
-    name: String,
-    version: String,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-struct InitializeResult {
-    #[serde(rename = "serverInfo")]
-    server_info: ServerInfo,
-    #[serde(rename = "capabilities")]
-    server_capabilities: ServerCapabilities,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-struct ServerInfo {
-    name: String,
-    version: Option<String>,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-struct ServerCapabilities {
-    #[serde(rename = "hoverProvider")]
-    hover_provider: Option<bool>,
-    #[serde(rename = "textDocumentSync")]
-    text_document_sync: u32,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-struct ClientCapabilities {}
-
-fn new_init_response(id: Option<u32>) -> Response {
-    let server_cap = ServerCapabilities {hover_provider:Some(true),text_document_sync:1};
-    let server_info: ServerInfo = ServerInfo {
-        name: String::from("68kasm server"),
-        version: Some(String::from("v-0.1")),
-    };
-
-    let init_res = InitializeResult {
-        server_info,
-        server_capabilities: server_cap,
-    };
-    return Response {
-        id,
-        jsonrpc: String::from("2.0"),
-        result: init_res,
-    };
-}
-
 #[cfg(test)]
 mod test_main {
     use super::*;
