@@ -14,11 +14,12 @@ pub struct Message{
 pub fn encode(content:impl Serialize)->String{
 
     let v=serde_json::to_string(&content).unwrap();
-    return format!("Content-Length: {}\\r\\n\\r\\n{}", v.len(),v);
+    let a =format!("Content-Type: application/json\r\nContent-Length: {}\r\n\r\n{}", v.len(),v);
+    return a;
 }
 pub fn decode(msg: &str)->Message{
 
-   let parts: Vec<&str> = msg.split("\\r\\n\\r\\n").collect();
+   let parts: Vec<&str> = msg.split(r"\r\n\r\n").collect();
    let _length:i32=parts.get(0).unwrap()[17..].parse().unwrap();
    let v: Message= serde_json::from_str(parts.get(1).unwrap()).unwrap();
    return v;

@@ -1,0 +1,14 @@
+# log4rs.yml
+refresh_rate: 30 seconds
+
+appenders:
+  file:
+    kind: file
+    path: "/home/strozzi/projects/lsp/application.log"
+    encoder:
+      pattern: "{m}"
+
+root:
+  level: info
+  appenders:
+    - file

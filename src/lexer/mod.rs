@@ -1,5 +1,14 @@
 
 
+pub fn tokenize(data: &str)->Vec<TkLine>{
+    let mut lines:Vec<TkLine>=Vec::new();
+    let _=data.lines().map(|l|{
+        let line=tokenize_line(l);
+        lines.push(line);
+    });
+    return lines;
+}
+
 pub struct TkLine<'a>{
     label: Option<&'a str>,
     operation: Option<&'a str>,
@@ -16,9 +25,9 @@ impl<'a> TkLine<'a>{
 
 
 
-pub fn tokenize_line(line: &str) ->Result<TkLine,String>{
+pub fn tokenize_line(line: &str) ->TkLine{
     if line.len()==0{
-        return Ok(TkLine::empty());
+        return TkLine::empty();
     }
     let mut len=0;
     let (label,l1)=search_label(line);
@@ -30,7 +39,7 @@ pub fn tokenize_line(line: &str) ->Result<TkLine,String>{
     let (cmt,_)=search_comment(&line[len..]);
     let tk_line=TkLine{original: line,label,operation:op, operand:opds,comment:cmt};
 
-    return Ok(tk_line);
+    return tk_line;
 }
 
 /**given a String seach for a Label. The label must be the first word of the line and dont have
@@ -82,7 +91,7 @@ mod test_tokenization{
         let line="TEST: MOVE.L a,b *comment";
         let a=TkLine{original:&line,label:Some(&line[..5]),operation:Some(&line[6..12]),
         operand:Some(&line[13..16]),comment:Some(&line[17..])};
-        let b=tokenize_line(&line).expect("It must return a value");
+        let b=tokenize_line(&line);
 
         assert_eq!(a.label,b.label);
         assert_eq!(a.operation,b.operation);
@@ -95,7 +104,7 @@ mod test_tokenization{
     fn empty_line(){
         let e="";
         let a=TkLine{label:None,operand:None,operation:None,original:"",comment:None};
-        let b=tokenize_line(e).expect("It must return a value");
+        let b=tokenize_line(e);
 
 
         assert_eq!(a.label,b.label);
