@@ -28,6 +28,17 @@ impl State{
         let s= format!("Hover from {} at line {}",position.character,position.line);
         Some(super::Hover{contents:s})
     }
+    pub fn definition(self: &mut State,doc:super::TextDocumentItem)->Option<super::Location>{
+            let pos=super::Position{
+                line: 0,
+                character: 0,
+            };
+            let mut pos2 = pos.clone();
+            pos2.character += 5;
+            let range=super::Range::new(pos,pos2);
+            let loc = super::Location::new(doc.uri, range);
+            Some(loc)
+    }
 
     pub fn new()->State{
         return State{

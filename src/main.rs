@@ -1,12 +1,12 @@
 use log::info;
 use log4rs;
-use std::io::{self, BufRead, BufReader, BufWriter, Cursor, Read, Write};
 use lsp::*;
+use std::io::{self, BufRead, BufReader, BufWriter, Cursor, Read, Write};
 mod lexer;
-mod rpc;
 mod lsp;
+mod rpc;
 fn main() {
-    let mut state=state::State::new();
+    let mut state = state::State::new();
     log4rs::init_file("/home/strozzi/projects/lsp/log4rs.yml", Default::default()).unwrap();
     info!("Server has started\n");
     let stdin = io::stdin();
@@ -39,7 +39,7 @@ InitializeParams { client_info: ClientInfo { name: \"Neovim\", version: \"0.10.3
             let _ = handle.read_exact(&mut data);
             show_json(&data[..]);
             let req = parse_request(&data);
-            let resp = manage_request(req,&mut state);
+            let resp = manage_request(req, &mut state);
             if let Some(r) = resp {
                 let _ = writer.write(&r.as_bytes()).unwrap();
                 let _ = writer.flush();
@@ -60,43 +60,52 @@ fn parse_request(data: &[u8]) -> Request {
     return req;
 }
 
-
 fn manage_request(req: Request, state: &mut state::State) -> Option<String> {
     info!("Method: '{}'\n", req.method);
     match &req.method[..] {
-        "textDocument/didOpen" =>{
-            let td=req.params.text_document?;
-            let uri=td.uri;
-            let text=td.text?;
-            info!("File opened: {}\n",uri);
-            state.open_document(uri,text);
+        "textDocument/didOpen" => {
+            let td = req.params.text_document?;
+            let uri = td.uri;
+            let text = td.text?;
+            info!("File opened: {}\n", uri);
+            state.open_document(uri, text);
             None
-        },
+        }
         "initialize" => {
             let res = InitializeResponse::new(req.id);
             let r = rpc::encode(res);
             Some(r)
-        },
-        "initialized"=>{
+        }
+        "initialized" => {
             info!("Initialized\n");
             None
-        },
-        "textDocument/didChange" =>{
-            let td=req.params.text_document?;
-            let uri=td.uri;
-            let text=req.params.text_document_change?;
-            info!("File changed: {}\n",uri);
-            state.edit_document(uri,text.as_slice()[0].text.clone());
+        }
+        "textDocument/didChange" => {
+            let td = req.params.text_document?;
+            let uri = td.uri;
+            let text = req.params.text_document_change?;
+            info!("File changed: {}\n", uri);
+            state.edit_document(uri, text.as_slice()[0].text.clone());
             None
-        },
-        "textDocument/hover" =>{
+        }
+        "textDocument/hover" => {
             info!("Hover\n");
-            let pos=req.params.position?;
-            let hover=state.hover(pos)?;
-            let hover_resp=HoverResponse::new(req.id,hover);
-            let r=rpc::encode(hover_resp);
+            let pos = req.params.position?;
+            let hover = state.hover(pos)?;
+            let hover_resp = HoverResponse::new(req.id, hover);
+            let r = rpc::encode(hover_resp);
             Some(r)
-        },
+        }
+        "textDocument/definition" => {
+            info!("definition request\n");
+
+
+            let doc = req.params.text_document?;
+            let loc=state.definition(doc)?;
+            let res = DefinitionResponse::new(req.id, loc);
+            let r = rpc::encode(res);
+            Some(r)
+        }
         _ => None,
     }
 }

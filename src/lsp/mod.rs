@@ -35,6 +35,8 @@ impl InitializeResponse {
         let server_cap = ServerCapabilities {
             hover_provider: Some(true),
             text_document_sync: 1,
+            document_highlight_provider: Some(true),
+            definition_provider: Some(true),
         };
         let server_info: ServerInfo = ServerInfo {
             name: String::from("68kasm server"),
@@ -60,7 +62,6 @@ pub struct Notification {
 }
 
 
-
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Params {
     #[serde(rename = "clientInfo")]
@@ -69,6 +70,7 @@ pub struct Params {
     pub text_document: Option<TextDocumentItem>,
     #[serde(rename = "contentChanges")]
     pub text_document_change: Option<Vec<TextDocumentContentChange>>,
+
     //for TextDocumentPositionParams
     pub position: Option<Position>,
 }
@@ -99,6 +101,10 @@ pub struct ServerCapabilities {
     pub hover_provider: Option<bool>,
     #[serde(rename = "textDocumentSync")]
     pub text_document_sync: u32,
+    #[serde(rename = "documentHighlightProvider")]
+    pub document_highlight_provider: Option<bool>,
+    #[serde(rename = "definitionProvider")]
+    pub definition_provider: Option<bool>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -119,10 +125,39 @@ pub struct TextDocumentContentChange{
 }
 
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize,Clone, Deserialize, Debug)]
 pub struct Position{
-    line: u32,
-    character: u32
+    pub line: u32,
+    pub character: u32
+}
+#[derive(Serialize, Deserialize, Debug)]
+pub struct Range{
+    start: Position,
+    end: Position,
+
+}
+impl Range{
+    pub fn new(start:Position,end:Position)->Range{
+        Range{
+            start,
+            end
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct Location{
+    uri: String,
+    range: Range,
+}
+
+impl Location{
+    pub fn new(uri:String,range:Range)->Location{
+        Location{
+            uri,
+            range
+        }
+    }
 }
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Hover{
@@ -144,4 +179,17 @@ impl HoverResponse{
     }
 }
 
-
+#[derive(Serialize, Deserialize, Debug)]
+pub struct DefinitionResponse{
+    #[serde(flatten)]
+    response:Response,
+    result:Location
+}
+impl DefinitionResponse{
+    pub fn new(id:Option<u32>,result:Location)->DefinitionResponse{
+        DefinitionResponse{
+            response:Response::new(id),
+            result
+        }
+    }
+}
