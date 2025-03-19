@@ -1,124 +1,218 @@
+use super::lsp::{Position, Range};
+use log::info;
 
-
-pub fn tokenize(data: &str)->Vec<TkLine>{
-    let mut lines:Vec<TkLine>=Vec::new();
-    let _=data.lines().map(|l|{
-        let line=tokenize_line(l);
+pub fn tokenize(data: &str) -> Vec<TkLine> {
+    let mut lines: Vec<TkLine> = Vec::new();
+    for (idx, l) in data.lines().enumerate() {
+        let line = tokenize_line(l.to_string(), idx as u32);
         lines.push(line);
-    });
+    }
     return lines;
 }
-
-pub struct TkLine<'a>{
-    label: Option<&'a str>,
-    operation: Option<&'a str>,
-    operand: Option<&'a str>,
-    comment: Option<&'a str>,
-    original: &'a str,
+#[derive(Debug)]
+pub struct TkLine {
+    pub label: Option<Range>,
+    pub operation: Option<Range>,
+    pub operand: Option<Range>,
+    pub comment: Option<Range>,
+    pub original: String,
 }
-impl<'a> TkLine<'a>{
-    fn empty()-> TkLine<'a>{
-        TkLine{label:None,operand:None,operation:None,original:"",comment:None}
+impl TkLine {
+    fn empty() -> TkLine {
+        TkLine {
+            label: None,
+            operand: None,
+            operation: None,
+            original: "".to_string(),
+            comment: None,
+        }
     }
 }
 
-
-
-
-pub fn tokenize_line(line: &str) ->TkLine{
-    if line.len()==0{
+pub fn tokenize_line(line: String, lnum: u32) -> TkLine {
+    if line.len() == 0 {
         return TkLine::empty();
     }
-    let mut len=0;
-    let (label,l1)=search_label(line);
-    len+=l1;
-    let (op,l2)=search_op(&line[len..]);
-    len+=l2;
-    let (opds,l3)=search_op(&line[len..]);
-    len+=l3;
-    let (cmt,_)=search_comment(&line[len..]);
-    let tk_line=TkLine{original: line,label,operation:op, operand:opds,comment:cmt};
+    let mut len = 0;
+    let label = search_label(&line, lnum, len);
+    len = Range::last(&label);
+    let op = if len < line.len() {
+        //still chars
+        let op = search_op(&line[len..], lnum, len);
+        len = Range::last(&op);
+        op
+    } else {
+        None
+    };
+    let opds = if len < line.len() {
+        //still chars
+        let opds = search_op(&line[len..], lnum, len);
+        len = Range::last(&opds);
+        opds
+    } else {
+        None
+    };
+    let cmt: Option<Range> = if len < line.len() {
+        //still chars
+        search_comment(&line[len..], lnum, len)
+    } else {
+        None
+    };
+
+    let tk_line = TkLine {
+        original: line,
+        label,
+        operation: op,
+        operand: opds,
+        comment: cmt,
+    };
 
     return tk_line;
 }
 
 /**given a String seach for a Label. The label must be the first word of the line and dont have
  white spaces before.
- Returns a slice containing the label or None if not found.
 **/
-fn search_label(line: &str)->(Option<&str>,usize){
-    if let Some(idx)=line.char_indices().find(|&(_,c)| c == ' ' || c == '\t'){
-        if idx.0 == 0 {return (None,0);}
-        return (Some(&line[..idx.0]),idx.0);
+fn search_label(line: &str, lnum: u32, start: usize) -> Option<Range> {
+    if let Some(idx) = line.char_indices().find(|&(_, c)| c == ' ' || c == '\t') {
+        if idx.0 == 0 {
+            return None;
+        }
+        let pos1 = Position {
+            line: lnum,
+            character: 0,
+        };
+        let pos2 = Position {
+            line: lnum,
+            character: (start + idx.0) as u32,
+        };
+        return Some(Range::new(pos1, pos2));
     };
-    return (None,0);
+    return None;
 }
 
 /**
-  Search for the operation code.
-  Returns a option of a pointer to a slice containing the op.
-  The op MUST have spaces or tab before, even if no label present.
- */
-fn search_op(line: &str)->(Option<&str>,usize){
-    if let Some(index)=line.char_indices().find(|&(_,c)|c.is_alphabetic()){
-        if index.0==0{
-            return (None,0);
-        }    
-        let index2=line[index.0..].char_indices()
-        .find(|&(_,c)| c == ' ' || c == '\t')
-        .map(|(index, _)| index+1)  
-        .unwrap_or_else(|| line.len());
+ Search for the operation code.
+ The op MUST have spaces or tab before, even if no label present.
+*/
+fn search_op(line: &str, lnum: u32, start: usize) -> Option<Range> {
+    if let Some(index) = line.char_indices().find(|&(_, c)| c.is_alphabetic()) {
+        if index.0 == 0 {
+            return None;
+        }
+        let mut index2 = line[index.0..]
+            .char_indices()
+            .find(|&(_, c)| c == ' ' || c == '\t')
+            .map(|(index, _)| index )
+            .unwrap_or_else(|| line.len());
+        if index2 >= line.len() {
+            index2 = line.len()
+        }
 
-        println!("op: {} {}\n",line,index2);
-        return (Some(&line[index.0..index2]),index2);
-    }    
-    (None,0)
+        let pos1 = Position {
+            line: lnum,
+            character: (start + index.0) as u32,
+        };
+        let pos2 = Position {
+            line: lnum,
+            character: (start + index.0 + index2) as u32,
+        };
+        return Some(Range::new(pos1, pos2));
+    }
+    None
 }
 /*
  Search if comment line is present
 */
-fn search_comment(line: &str)->(Option<&str>,usize){
-    if let Some(index)=line.char_indices().find(|&(_,c)| c=='*'){
-        return (Some(&line[index.0..]),index.0)
+fn search_comment(line: &str, lnum: u32, start: usize) -> Option<Range> {
+    if let Some(index) = line.char_indices().find(|&(_, c)| c == '*') {
+        let pos1 = Position {
+            line: lnum,
+            character: (start + index.0) as u32,
+        };
+        let pos2 = Position {
+            line: lnum,
+            character: (start + line.len()) as u32,
+        };
+        return Some(Range::new(pos1, pos2));
     }
-    (None, 0)
+    None
 }
 #[cfg(test)]
-mod test_tokenization{
+mod test_tokenization {
     use super::*;
     #[test]
-    fn correct_tokenize(){
-        let line="TEST: MOVE.L a,b *comment";
-        let a=TkLine{original:&line,label:Some(&line[..5]),operation:Some(&line[6..12]),
-        operand:Some(&line[13..16]),comment:Some(&line[17..])};
-        let b=tokenize_line(&line);
+    fn correct_tokenize() {
+        let line = String::from("TEST: MOVE.L a,b *comment");
+        let a = TkLine {
+            original: line.clone(),
+            label: Some(Range::new(
+                Position {
+                    line: 0,
+                    character: 0,
+                },
+                Position {
+                    line: 0,
+                    character: 5,
+                },
+            )),
+            operation: Some(Range::new(
+                Position {
+                    line: 0,
+                    character: 6,
+                },
+                Position {
+                    line: 0,
+                    character: 12,
+                },
+            )),
+            operand: Some(Range::new(
+                Position {
+                    line: 0,
+                    character: 13,
+                },
+                Position {
+                    line: 0,
+                    character: 16,
+                },
+            )),
+            comment: Some(Range::new(
+                Position {
+                    line: 0,
+                    character: 17,
+                },
+                Position {
+                    line: 0,
+                    character: line.len() as u32,
+                },
+            )),
+        };
+        let b = tokenize_line(line, 0);
 
-        assert_eq!(a.label,b.label);
-        assert_eq!(a.operation,b.operation);
-        assert_eq!(a.operand,b.operand);
-        assert_eq!(a.comment,b.comment);
-        assert_eq!(a.original,b.original);
-
+        assert_eq!(a.label, b.label);
+        assert_eq!(a.operation, b.operation);
+        assert_eq!(a.operand, b.operand);
+        assert_eq!(a.comment, b.comment);
+        assert_eq!(a.original, b.original);
     }
-     #[test]
-    fn empty_line(){
-        let e="";
-        let a=TkLine{label:None,operand:None,operation:None,original:"",comment:None};
-        let b=tokenize_line(e);
+    #[test]
+    fn empty_line() {
+        let e = String::new();
+        let a = TkLine {
+            label: None,
+            operand: None,
+            operation: None,
+            original: String::new(),
+            comment: None,
+        };
+        let b = tokenize_line(e, 0);
 
-
-        assert_eq!(a.label,b.label);
-        assert_eq!(a.operation,b.operation);
-        assert_eq!(a.operand,b.operand);
-        assert_eq!(a.comment,b.comment);
-        assert_eq!(a.original,b.original);
-
+        assert_eq!(a.label, b.label);
+        assert_eq!(a.operation, b.operation);
+        assert_eq!(a.operand, b.operand);
+        assert_eq!(a.comment, b.comment);
+        assert_eq!(a.original, b.original);
     }
 
     //TODO: when no label, the op if in the left is treated as a label
-
 }
-
-
-
-

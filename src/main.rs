@@ -11,10 +11,7 @@ fn main() {
     info!("Server has started\n");
     let stdin = io::stdin();
     let stdout = io::stdout();
-    let tmp=b"Content-Length: 3594\r\n\r\n{\"id\":1,\"method\":\"initialize\",\"params\":{\"workspaceFolders\":null,\"trace\":\"off\",\"processId\":12731,\"clientInfo\":{\"name\":\"Neovim\",\"version\":\"0.10.3+g9b5ee7df4e\"},\"workDoneToken\":\"1\",\"rootPath\":null,\"rootUri\":null,\"capabilities\":{\"workspace\":{\"didChangeConfiguration\":{\"dynamicRegistration\":false},\"workspaceFolders\":true,\"applyEdit\":true,\"symbol\":{\"dynamicRegistration\":false,\"symbolKind\":{\"valueSet\":[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26]}},\"didChangeWatchedFiles\":{\"dynamicRegistration\":false,\"relativePatternSupport\":true},\"semanticTokens\":{\"refreshSupport\":true},\"inlayHint\":{\"refreshSupport\":true},\"workspaceEdit\":{\"resourceOperations\":[\"rename\",\"create\",\"delete\"]},\"configuration\":true},\"general\":{\"positionEncodings\":[\"utf-16\"]},\"textDocument\":{\"hover\":{\"dynamicRegistration\":true,\"contentFormat\":[\"markdown\",\"plaintext\"]},\"inlayHint\":{\"dynamicRegistration\":true,\"resolveSupport\":{\"properties\":[\"textEdits\",\"tooltip\",\"location\",\"command\"]}},\"diagnostic\":{\"dynamicRegistration\":false},\"definition\":{\"linkSupport\":true,\"dynamicRegistration\":true},\"semanticTokens\":{\"dynamicRegistration\":false,\"tokenModifiers\":[\"declaration\",\"definition\",\"readonly\",\"static\",\"deprecated\",\"abstract\",\"async\",\"modification\",\"documentation\",\"defaultLibrary\"],\"serverCancelSupport\":false,\"augmentsSyntaxTokens\":true,\"tokenTypes\":[\"namespace\",\"type\",\"class\",\"enum\",\"interface\",\"struct\",\"typeParameter\",\"parameter\",\"variable\",\"property\",\"enumMember\",\"event\",\"function\",\"method\",\"macro\",\"keyword\",\"modifier\",\"comment\",\"string\",\"number\",\"regexp\",\"operator\",\"decorator\"],\"formats\":[\"relative\"],\"requests\":{\"full\":{\"delta\":true},\"range\":false},\"overlappingTokenSupport\":true,\"multilineTokenSupport\":false},\"references\":{\"dynamicRegistration\":false},\"implementation\":{\"linkSupport\":true},\"typeDefinition\":{\"linkSupport\":true},\"signatureHelp\":{\"dynamicRegistration\":false,\"signatureInformation\":{\"documentationFormat\":[\"markdown\",\"plaintext\"],\"activeParameterSupport\":true,\"parameterInformation\":{\"labelOffsetSupport\":true}}},\"synchronization\":{\"dynamicRegistration\":false,\"willSaveWaitUntil\":true,\"didSave\":true,\"willSave\":true},\"documentHighlight\":{\"dynamicRegistration\":false},\"codeAction\":{\"dynamicRegistration\":true,\"isPreferredSupport\":true,\"dataSupport\":true,\"resolveSupport\":{\"properties\":[\"edit\"]},\"codeActionLiteralSupport\":{\"codeActionKind\":{\"valueSet\":[\"\",\"quickfix\",\"refactor\",\"refactor.extract\",\"refactor.inline\",\"refactor.rewrite\",\"source\",\"source.organizeImports\"]}}},\"callHierarchy\":{\"dynamicRegistration\":false},\"rename\":{\"dynamicRegistration\":true,\"prepareSupport\":true},\"publishDiagnostics\":{\"tagSupport\":{\"valueSet\":[1,2]},\"dataSupport\":true,\"relatedInformation\":true},\"documentSymbol\":{\"dynamicRegistration\":false,\"hierarchicalDocumentSymbolSupport\":true,\"symbolKind\":{\"valueSet\":[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26]}},\"formatting\":{\"dynamicRegistration\":true},\"rangeFormatting\":{\"dynamicRegistration\":true},\"completion\":{\"dynamicRegistration\":false,\"contextSupport\":false,\"completionItemKind\":{\"valueSet\":[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25]},\"completionList\":{\"itemDefaults\":[\"editRange\",\"insertTextFormat\",\"insertTextMode\",\"data\"]},\"completionItem\":{\"snippetSupport\":false,\"commitCharactersSupport\":false,\"preselectSupport\":false,\"deprecatedSupport\":false,\"documentationFormat\":[\"markdown\",\"plaintext\"]}},\"declaration\":{\"linkSupport\":true}},\"window\":{\"workDoneProgress\":true,\"showMessage\":{\"messageActionItem\":{\"additionalPropertiesSupport\":false}},\"showDocument\":{\"support\":true}}}},\"jsonrpc\":\"2.0\"}New request:: method: 'initialize'
-InitializeParams { client_info: ClientInfo { name: \"Neovim\", version: \"0.10.3+g9b5ee7df4e\" } }";
     let mut header = vec![0; 24];
-    let _cursor = Cursor::new(&tmp[..]);
 
     let mut handle = BufReader::new(stdin);
     let mut writer = BufWriter::new(stdout);
@@ -74,6 +71,7 @@ fn manage_request(req: Request, state: &mut state::State) -> Option<String> {
         "initialize" => {
             let res = InitializeResponse::new(req.id);
             let r = rpc::encode(res);
+            info!("{}\n",r);
             Some(r)
         }
         "initialized" => {
@@ -104,6 +102,34 @@ fn manage_request(req: Request, state: &mut state::State) -> Option<String> {
             let loc=state.definition(doc)?;
             let res = DefinitionResponse::new(req.id, loc);
             let r = rpc::encode(res);
+            Some(r)
+        }
+
+        "textDocument/semanticTokens"=>{
+            info!("SemanticTokens request\n");
+            let doc=req.params.text_document?;
+            let tk=state.tokens_full(doc,None)?;
+            let res=SemanticTokenResponse{
+                response:Response::new(req.id),
+                result:tk
+            };
+            let r = rpc::encode(res);
+
+            Some(r)
+        }
+        "textDocument/semanticTokens/full"=>{
+            info!("SemanticTokens request\n");
+            let doc=req.params.text_document?;
+            info!("SemanticTokens request\n");
+            let tk=state.tokens_full(doc,None)?;
+            let res=SemanticTokenResponse{
+                response:Response::new(req.id),
+                result:tk
+            };
+            info!("SemanticTokens request\n");
+            let r = rpc::encode(res);
+            info!("SemanticTokens request\n");
+
             Some(r)
         }
         _ => None,

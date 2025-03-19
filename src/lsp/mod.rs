@@ -9,15 +9,14 @@ pub struct Request {
     pub params: Params,
 }
 
-
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Response {
     pub jsonrpc: String,
     pub id: Option<u32>,
 }
-impl Response{
-    pub fn new(id: Option<u32>)->Response{
-        Response{
+impl Response {
+    pub fn new(id: Option<u32>) -> Response {
+        Response {
             id,
             jsonrpc: String::from("2.0"),
         }
@@ -25,18 +24,37 @@ impl Response{
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-pub struct InitializeResponse{
+pub struct InitializeResponse {
     #[serde(flatten)]
     response: Response,
-    result:InitializeResult
+    pub result: InitializeResult,
 }
 impl InitializeResponse {
     pub fn new(id: Option<u32>) -> InitializeResponse {
+        let opts = SemanticTokensOptions {
+            legend: SemanticTokensLegend {
+                token_types: SemanticTokenTypes::list(),
+                token_modifiers: SemanticTokenModifiers::list(),
+            },
+            full: Some(Delta { delta: true }),
+            range: Some(false),
+        };
+        let sta = StaticRegistrationOptions { id: None };
+
+        let tops = TexDocumentRegistrationOptions {
+            document_selector: None,
+        };
+        let reg = SemanticTokensRegistrationOptions {
+            semantic_tokens_options: opts,
+            static_registration_options: sta,
+            text_document_registration_opts: tops,
+        };
         let server_cap = ServerCapabilities {
             hover_provider: Some(true),
             text_document_sync: 1,
             document_highlight_provider: Some(true),
             definition_provider: Some(true),
+            semantic_tokens_provider: Some(reg),
         };
         let server_info: ServerInfo = ServerInfo {
             name: String::from("68kasm server"),
@@ -48,19 +66,17 @@ impl InitializeResponse {
             server_capabilities: server_cap,
         };
         return InitializeResponse {
-            response:Response::new(id),
+            response: Response::new(id),
             result: init_res,
         };
     }
 }
-
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Notification {
     pub jsonrpc: String,
     pub method: String,
 }
-
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Params {
@@ -84,7 +100,7 @@ pub struct ClientInfo {
 #[derive(Serialize, Deserialize, Debug)]
 pub struct InitializeResult {
     #[serde(rename = "serverInfo")]
-    pub server_info:ServerInfo,
+    pub server_info: ServerInfo,
     #[serde(rename = "capabilities")]
     pub server_capabilities: ServerCapabilities,
 }
@@ -105,6 +121,8 @@ pub struct ServerCapabilities {
     pub document_highlight_provider: Option<bool>,
     #[serde(rename = "definitionProvider")]
     pub definition_provider: Option<bool>,
+    #[serde(rename = "semanticTokensProvider")]
+    pub semantic_tokens_provider: Option<SemanticTokensRegistrationOptions>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -120,76 +138,180 @@ pub struct TextDocumentItem {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-pub struct TextDocumentContentChange{
+pub struct TextDocumentContentChange {
     pub text: String,
 }
 
-
-#[derive(Serialize,Clone, Deserialize, Debug)]
-pub struct Position{
+#[derive(Serialize, Deserialize, Debug,PartialEq,Clone)]
+pub struct Position {
     pub line: u32,
-    pub character: u32
+    pub character: u32,
 }
-#[derive(Serialize, Deserialize, Debug)]
-pub struct Range{
-    start: Position,
-    end: Position,
+#[derive(Serialize, Deserialize, Debug,PartialEq)]
+pub struct Range {
+    pub start: Position,
+    pub end: Position,
+}
 
-}
-impl Range{
-    pub fn new(start:Position,end:Position)->Range{
-        Range{
-            start,
-            end
+impl Range {
+    pub fn new(start: Position, end: Position) -> Range {
+        Range { start, end }
+    }
+    pub fn last(opt: &Option<Range>) -> usize {
+        match opt {
+            Some(r) => r.end.character as usize,
+            None => 0,
         }
     }
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-pub struct Location{
+pub struct Location {
     uri: String,
     range: Range,
 }
 
-impl Location{
-    pub fn new(uri:String,range:Range)->Location{
-        Location{
-            uri,
-            range
-        }
+impl Location {
+    pub fn new(uri: String, range: Range) -> Location {
+        Location { uri, range }
     }
 }
 #[derive(Serialize, Deserialize, Debug)]
-pub struct Hover{
-    contents: String
+pub struct Hover {
+    contents: String,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-pub struct HoverResponse{
+pub struct HoverResponse {
     #[serde(flatten)]
     response: Response,
-    result: Hover
+    result: Hover,
 }
-impl HoverResponse{
-    pub fn new(id:Option<u32>, hover: Hover)->HoverResponse{
-        HoverResponse{
+impl HoverResponse {
+    pub fn new(id: Option<u32>, hover: Hover) -> HoverResponse {
+        HoverResponse {
             response: Response::new(id),
-            result:hover
+            result: hover,
         }
     }
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-pub struct DefinitionResponse{
+pub struct DefinitionResponse {
     #[serde(flatten)]
-    response:Response,
-    result:Location
+    response: Response,
+    result: Location,
 }
-impl DefinitionResponse{
-    pub fn new(id:Option<u32>,result:Location)->DefinitionResponse{
-        DefinitionResponse{
-            response:Response::new(id),
-            result
+impl DefinitionResponse {
+    pub fn new(id: Option<u32>, result: Location) -> DefinitionResponse {
+        DefinitionResponse {
+            response: Response::new(id),
+            result,
         }
     }
+}
+
+pub enum SemanticTokenTypes {
+    Keyword,
+    Variable,
+    Number,
+    Operator,
+    Comment,
+    String,
+    Macro,
+    Type,
+    Method,
+}
+impl SemanticTokenTypes {
+    pub fn str(&self) -> String {
+        match self {
+            SemanticTokenTypes::Keyword => String::from("keyword"),
+            SemanticTokenTypes::Variable => String::from("variable"),
+            SemanticTokenTypes::Number => String::from("number"),
+            SemanticTokenTypes::Operator => String::from("operator"),
+            SemanticTokenTypes::Comment => String::from("comment"),
+            SemanticTokenTypes::String => String::from("string"),
+            SemanticTokenTypes::Macro => String::from("macro"),
+            SemanticTokenTypes::Type => String::from("type"),
+            SemanticTokenTypes::Method => String::from("method"),
+        }
+    }
+    pub fn list() -> Vec<String> {
+        let types = [
+            SemanticTokenTypes::Keyword,
+            SemanticTokenTypes::Variable,
+            SemanticTokenTypes::Number,
+            SemanticTokenTypes::Operator,
+            SemanticTokenTypes::Comment,
+            SemanticTokenTypes::String,
+            SemanticTokenTypes::Macro,
+            SemanticTokenTypes::Type,
+            SemanticTokenTypes::Method,
+        ];
+
+        types.iter().map(|token| token.str()).collect()
+    }
+}
+
+pub enum SemanticTokenModifiers {}
+impl SemanticTokenModifiers {
+    pub fn list() -> Vec<String> {
+        vec![]
+    }
+}
+#[derive(Serialize, Deserialize, Debug)]
+pub struct SemanticTokensLegend {
+    #[serde(rename = "tokenTypes")]
+    pub token_types: Vec<String>,
+    #[serde(rename = "tokenModifiers")]
+    pub token_modifiers: Vec<String>,
+}
+#[derive(Serialize, Deserialize, Debug)]
+pub struct Delta {
+    delta: bool,
+}
+#[derive(Serialize, Deserialize, Debug)]
+pub struct SemanticTokensOptions {
+    pub legend: SemanticTokensLegend,
+    pub range: Option<bool>,
+    pub full: Option<Delta>,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct StaticRegistrationOptions {
+    pub id: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct DocumentFilter {
+    language: Option<String>,
+    scheme: Option<String>,
+    pattern: Option<String>,
+}
+#[derive(Serialize, Deserialize, Debug)]
+pub struct TexDocumentRegistrationOptions {
+    #[serde(rename = "documentSelector")]
+    document_selector: Option<Vec<DocumentFilter>>,
+}
+#[derive(Serialize, Deserialize, Debug)]
+pub struct SemanticTokensRegistrationOptions {
+    #[serde(flatten)]
+    pub semantic_tokens_options: SemanticTokensOptions,
+    #[serde(flatten)]
+    pub static_registration_options: StaticRegistrationOptions,
+    #[serde(flatten)]
+    pub text_document_registration_opts: TexDocumentRegistrationOptions,
+}
+#[derive(Serialize, Deserialize, Debug)]
+pub struct SemanticTokens {
+    #[serde(rename = "resultId")]
+    result_id: Option<String>,
+    data: Vec<u32>,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct SemanticTokenResponse {
+    #[serde(flatten)]
+    pub response: Response,
+    pub result: SemanticTokens,
 }
