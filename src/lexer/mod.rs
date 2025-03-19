@@ -27,6 +27,9 @@ impl TkLine {
             comment: None,
         }
     }
+    pub fn is_empty(self: &TkLine) -> bool {
+        return self.original.trim() == "";
+    }
 }
 
 pub fn tokenize_line(line: String, lnum: u32) -> TkLine {
@@ -34,27 +37,34 @@ pub fn tokenize_line(line: String, lnum: u32) -> TkLine {
         return TkLine::empty();
     }
     let mut len = 0;
-    let label = search_label(&line, lnum, len);
-    len = Range::last(&label);
-    let op = if len < line.len() {
+    let mut trim_right = line.len();
+    let cmt: Option<Range> = if len < trim_right {
         //still chars
-        let op = search_op(&line[len..], lnum, len);
+        let cmt = search_comment(&line[len..], lnum, len);
+        trim_right = Range::first(&cmt);
+        cmt
+    } else {
+        None
+    };
+    let label: Option<Range> = if len < trim_right {
+        let label = search_label(&line, lnum, len);
+        len = Range::last(&label);
+        label
+    } else {
+        None
+    };
+    let op = if len < trim_right {
+        //still chars
+        let op = search_op(&line[len..trim_right], lnum, len);
         len = Range::last(&op);
         op
     } else {
         None
     };
-    let opds = if len < line.len() {
+    let opds = if len < trim_right {
         //still chars
-        let opds = search_op(&line[len..], lnum, len);
-        len = Range::last(&opds);
+        let opds = search_op(&line[len..trim_right], lnum, len);
         opds
-    } else {
-        None
-    };
-    let cmt: Option<Range> = if len < line.len() {
-        //still chars
-        search_comment(&line[len..], lnum, len)
     } else {
         None
     };
@@ -74,21 +84,27 @@ pub fn tokenize_line(line: String, lnum: u32) -> TkLine {
  white spaces before.
 **/
 fn search_label(line: &str, lnum: u32, start: usize) -> Option<Range> {
+    let pos1 = Position {
+        line: lnum,
+        character: 0,
+    };
     if let Some(idx) = line.char_indices().find(|&(_, c)| c == ' ' || c == '\t') {
         if idx.0 == 0 {
             return None;
         }
-        let pos1 = Position {
-            line: lnum,
-            character: 0,
-        };
         let pos2 = Position {
             line: lnum,
             character: (start + idx.0) as u32,
         };
         return Some(Range::new(pos1, pos2));
     };
-    return None;
+    return Some(Range::new(
+        pos1,
+        Position {
+            line: lnum,
+            character: line.len() as u32,
+        },
+    ));
 }
 
 /**
@@ -96,14 +112,14 @@ fn search_label(line: &str, lnum: u32, start: usize) -> Option<Range> {
  The op MUST have spaces or tab before, even if no label present.
 */
 fn search_op(line: &str, lnum: u32, start: usize) -> Option<Range> {
-    if let Some(index) = line.char_indices().find(|&(_, c)| c.is_alphabetic()) {
+    if let Some(index) = line.char_indices().find(|&(_, c)| !c.is_ascii_whitespace()) {
         if index.0 == 0 {
             return None;
         }
         let mut index2 = line[index.0..]
             .char_indices()
             .find(|&(_, c)| c == ' ' || c == '\t')
-            .map(|(index, _)| index )
+            .map(|(index, _)| index)
             .unwrap_or_else(|| line.len());
         if index2 >= line.len() {
             index2 = line.len()
@@ -136,7 +152,16 @@ fn search_comment(line: &str, lnum: u32, start: usize) -> Option<Range> {
         };
         return Some(Range::new(pos1, pos2));
     }
-    None
+    Some(Range::new(
+        Position {
+            line: lnum,
+            character: line.len() as u32,
+        },
+        Position {
+            line: lnum,
+            character: line.len() as u32,
+        },
+    ))
 }
 #[cfg(test)]
 mod test_tokenization {

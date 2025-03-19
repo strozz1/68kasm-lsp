@@ -163,6 +163,12 @@ impl Range {
             None => 0,
         }
     }
+ pub fn first(opt: &Option<Range>) -> usize {
+        match opt {
+            Some(r) => r.start.character as usize,
+            None => 0,
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug)]

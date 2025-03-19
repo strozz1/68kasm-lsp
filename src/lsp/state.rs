@@ -67,7 +67,6 @@ fn parse_lines(tk: Vec<lexer::TkLine>)->Vec<u32>{
     let mut lines:Vec<u32>=Vec::with_capacity(tk.len());
     for (i,l) in tk.iter().enumerate(){
         let mut line=parse_tk(l,i);
-        info!("line:{:?}\n",l);
         lines.append(&mut line);
     }
     lines
@@ -77,6 +76,15 @@ fn parse_tk(tk:&lexer::TkLine,mut ln: usize)->Vec<u32>{
     let mut line:Vec<u32>=Vec::with_capacity(5);
     let mut last_start=0;
     if ln!=0{ln=1};
+
+    if tk.is_empty(){
+        line.push(1);
+        line.push(0);
+        line.push(0);
+        line.push(0);
+        line.push(0);
+        return line;
+    }
     if let Some(lb)=&tk.label{
         line.push(ln as u32);//line
         line.push(lb.start.character);//start relative

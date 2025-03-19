@@ -34,7 +34,6 @@ fn main() {
             //info!("Number: {:?} at index {:?}\n", length, index2);
             let mut data = vec![0u8; length as usize];
             let _ = handle.read_exact(&mut data);
-            show_json(&data[..]);
             let req = parse_request(&data);
             let resp = manage_request(req, &mut state);
             if let Some(r) = resp {
@@ -71,7 +70,6 @@ fn manage_request(req: Request, state: &mut state::State) -> Option<String> {
         "initialize" => {
             let res = InitializeResponse::new(req.id);
             let r = rpc::encode(res);
-            info!("{}\n",r);
             Some(r)
         }
         "initialized" => {
@@ -118,18 +116,14 @@ fn manage_request(req: Request, state: &mut state::State) -> Option<String> {
             Some(r)
         }
         "textDocument/semanticTokens/full"=>{
-            info!("SemanticTokens request\n");
+            info!("Full SemanticTokens request\n");
             let doc=req.params.text_document?;
-            info!("SemanticTokens request\n");
             let tk=state.tokens_full(doc,None)?;
             let res=SemanticTokenResponse{
                 response:Response::new(req.id),
                 result:tk
             };
-            info!("SemanticTokens request\n");
             let r = rpc::encode(res);
-            info!("SemanticTokens request\n");
-
             Some(r)
         }
         _ => None,
