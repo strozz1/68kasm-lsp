@@ -1,5 +1,4 @@
 use log::info;
-use log4rs;
 use lsp::*;
 use std::io::{self, BufRead, BufReader, BufWriter, Read, Write};
 mod lexer;
@@ -20,7 +19,7 @@ fn main() {
         let _red = handle.read_until(b'\n', &mut header).unwrap();
 
         if header.starts_with(b"Content-Length: ") {
-            handle.read_until('\n' as u8, &mut header).unwrap();
+            handle.read_until(b'\n', &mut header).unwrap();
 
             let index = header.iter().position(|&x| x == b'C').unwrap() + "Content-Length: ".len();
             let index2 = header.iter().position(|&x| x == b'\r').unwrap();
@@ -37,7 +36,7 @@ fn main() {
             let req = parse_request(&data);
             let resp = manage_request(req, &mut state);
             if let Some(r) = resp {
-                let _ = writer.write(&r.as_bytes()).unwrap();
+                let _ = writer.write(r.as_bytes()).unwrap();
                 let _ = writer.flush();
                 info!("Response sent\n");
             }
@@ -53,7 +52,7 @@ fn show_json(str: &[u8]) {
 
 fn parse_request(data: &[u8]) -> Request {
     let req: Request = serde_json::from_slice(data).expect("Error deserializing");
-    return req;
+    req
 }
 
 fn manage_request(req: Request, state: &mut state::State) -> Option<String> {

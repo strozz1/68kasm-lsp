@@ -1,5 +1,4 @@
 use super::super::lexer;
-use log::info;
 
 use std::collections::HashMap;
 
@@ -77,9 +76,9 @@ impl State {
     }
 
     pub fn new() -> State {
-        return State {
+         State {
             files: HashMap::new(),
-        };
+        }
     }
     fn get_diagnostics(self: &mut State, doc: TextDocumentItem) -> Option<Vec<Diagnostic>> {
         let uri = &doc.uri;

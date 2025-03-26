@@ -76,10 +76,10 @@ impl InitializeResponse {
             server_info,
             server_capabilities: server_cap,
         };
-        return InitializeResponse {
+        InitializeResponse {
             response: Response::new(id),
             result: init_res,
-        };
+        }
     }
 }
 

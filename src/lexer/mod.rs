@@ -6,7 +6,7 @@ pub fn tokenize(data: &str) -> Vec<TkLine> {
         let line = tokenize_line(l.to_string(), idx as u32);
         lines.push(line);
     }
-    return lines;
+    lines
 }
 #[derive(Debug)]
 pub struct TkLine {
@@ -27,16 +27,16 @@ impl TkLine {
         }
     }
     pub fn is_empty(self: &TkLine) -> bool {
-        return self.original.trim() == "";
+        self.original.trim() == ""
     }
     pub fn get_op(self: &TkLine) -> Option<&str> {
         let op = self.operation.clone()?;
-        return Some(&self.original[op.start.character as usize..op.end.character as usize]);
+        Some(&self.original[op.start.character as usize..op.end.character as usize])
     }
 }
 
 pub fn tokenize_line(line: String, lnum: u32) -> TkLine {
-    if line.len() == 0 {
+    if line.is_empty() {
         return TkLine::empty();
     }
     let cmt = search_comment(&line, lnum, 0);
@@ -60,21 +60,19 @@ pub fn tokenize_line(line: String, lnum: u32) -> TkLine {
     };
     let opds = if len < trim_right {
         //still chars
-        let opds = search_op(&line[len..trim_right], lnum, len);
-        opds
+        search_op(&line[len..trim_right], lnum, len)
     } else {
         None
     };
 
-    let tk_line = TkLine {
+    TkLine {
         original: line,
         label,
         operation: op,
         operand: opds,
         comment: cmt,
-    };
+    }
 
-    return tk_line;
 }
 
 /**given a String seach for a Label. The label must be the first word of the line and dont have
@@ -95,13 +93,13 @@ fn search_label(line: &str, lnum: u32, start: usize) -> Option<Range> {
         };
         return Some(Range::new(pos1, pos2));
     };
-    return Some(Range::new(
+    Some(Range::new(
         pos1,
         Position {
             line: lnum,
             character: line.len() as u32,
         },
-    ));
+    ))
 }
 
 /**
