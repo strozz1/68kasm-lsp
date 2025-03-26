@@ -1,13 +1,13 @@
-# LSP server for 68kasm assembly
+# LSP server for 68000 assembly
 > [!WARNING]
 > The LSP is currently in development, I just implemented the minimal for now
 
-The **68kasm-LSP** is a LSP server implementation written in Rust for the 68kasm assembly language for the 68000 Motorola processor.
+The **68k LSP** is a LSP server implementation written in Rust for the 68k assembly language for the 68000 Motorola processor.
 
 This assembly language is typically used in Universities and CS courses to teach students about computer architecture and how I/O interruptions work. 
 It's normally used with the [bsvc](https://github.com/BSVC/bsvc) simulator.
 
-For this language, files use the `.s` extention, and use 68kasm program for compiling the source code.
+For this language, files use the `.s` extention, and use 68k asm program for compiling the source code.
 ```bash
 $ 68kasm ./source.s
 ```
