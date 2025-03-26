@@ -1,87 +1,9 @@
+use capabilities::*;
 use serde::{Deserialize, Serialize};
 pub mod state;
-
-#[derive(Serialize, Deserialize, Debug)]
-pub struct Request {
-    pub jsonrpc: String,
-    pub id: Option<u32>,
-    pub method: String,
-    pub params: Params,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-pub struct Response {
-    pub jsonrpc: String,
-    pub id: Option<u32>,
-}
-impl Response {
-    pub fn new(id: Option<u32>) -> Response {
-        Response {
-            id,
-            jsonrpc: String::from("2.0"),
-        }
-    }
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-pub struct InitializeResponse {
-    #[serde(flatten)]
-    response: Response,
-    pub result: InitializeResult,
-}
-impl InitializeResponse {
-    pub fn new(id: Option<u32>) -> InitializeResponse {
-        let opts = SemanticTokensOptions {
-            legend: SemanticTokensLegend {
-                token_types: SemanticTokenTypes::list(),
-                token_modifiers: SemanticTokenModifiers::list(),
-            },
-            full: Some(Delta { delta: true }),
-            range: Some(false),
-        };
-        let sta = StaticRegistrationOptions { id: None };
-
-        let tops = TexDocumentRegistrationOptions {
-            document_selector: None,
-        };
-        let reg = SemanticTokensRegistrationOptions {
-            semantic_tokens_options: opts,
-            static_registration_options: sta,
-            text_document_registration_opts: tops,
-        };
-        let diagnostic = DiagnosticOptions {
-            identifier: None,
-            inter_file_dependencies: false,
-            work_space_diagnostics: false,
-        };
-        let diag_reg = DiagnosticRegistrationOptions {
-            id: Some("sad1:".to_string()),
-            opts: diagnostic,
-            document_selector: None,
-        };
-        let server_cap = ServerCapabilities {
-            hover_provider: Some(true),
-            text_document_sync: 1,
-            document_highlight_provider: Some(true),
-            definition_provider: Some(true),
-            semantic_tokens_provider: Some(reg),
-            diagnostics_provider: Some(diag_reg),
-        };
-        let server_info: ServerInfo = ServerInfo {
-            name: String::from("68kasm server"),
-            version: Some(String::from("v-0.1")),
-        };
-
-        let init_res = InitializeResult {
-            server_info,
-            server_capabilities: server_cap,
-        };
-        InitializeResponse {
-            response: Response::new(id),
-            result: init_res,
-        }
-    }
-}
+pub mod requests;
+pub mod response;
+pub mod capabilities;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Notification {
@@ -100,18 +22,12 @@ pub struct Params {
 
     //for TextDocumentPositionParams
     pub position: Option<Position>,
-
     // diagnosis
     pub identifier: Option<String>,
     #[serde(rename = "previousResultId")]
     pub previous_result_id: Option<String>,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
-pub struct ClientInfo {
-    pub name: String,
-    pub version: String,
-}
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct InitializeResult {
@@ -122,29 +38,16 @@ pub struct InitializeResult {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
+pub struct ClientInfo {
+    pub name: String,
+    pub version: String,
+}
+#[derive(Serialize, Deserialize, Debug)]
 pub struct ServerInfo {
     pub name: String,
     pub version: Option<String>,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
-pub struct ServerCapabilities {
-    #[serde(rename = "hoverProvider")]
-    pub hover_provider: Option<bool>,
-    #[serde(rename = "textDocumentSync")]
-    pub text_document_sync: u32,
-    #[serde(rename = "documentHighlightProvider")]
-    pub document_highlight_provider: Option<bool>,
-    #[serde(rename = "definitionProvider")]
-    pub definition_provider: Option<bool>,
-    #[serde(rename = "semanticTokensProvider")]
-    pub semantic_tokens_provider: Option<SemanticTokensRegistrationOptions>,
-    #[serde(rename = "diagnosticProvider")]
-    pub diagnostics_provider: Option<DiagnosticRegistrationOptions>,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-pub struct ClientCapabilities {}
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct TextDocumentItem {
@@ -205,35 +108,6 @@ pub struct Hover {
     contents: String,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
-pub struct HoverResponse {
-    #[serde(flatten)]
-    response: Response,
-    result: Hover,
-}
-impl HoverResponse {
-    pub fn new(id: Option<u32>, hover: Hover) -> HoverResponse {
-        HoverResponse {
-            response: Response::new(id),
-            result: hover,
-        }
-    }
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-pub struct DefinitionResponse {
-    #[serde(flatten)]
-    response: Response,
-    result: Location,
-}
-impl DefinitionResponse {
-    pub fn new(id: Option<u32>, result: Location) -> DefinitionResponse {
-        DefinitionResponse {
-            response: Response::new(id),
-            result,
-        }
-    }
-}
 
 pub enum SemanticTokenTypes {
     Keyword,
@@ -334,12 +208,6 @@ pub struct SemanticTokens {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-pub struct SemanticTokenResponse {
-    #[serde(flatten)]
-    pub response: Response,
-    pub result: SemanticTokens,
-}
-#[derive(Serialize, Deserialize, Debug)]
 pub struct DiagnosticOptions {
     identifier: Option<String>,
     #[serde(rename = "interFileDependencies")]
@@ -390,12 +258,6 @@ impl DiagnosticSeverity {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-pub struct DocumentDiagnosticReportResponse {
-    #[serde(flatten)]
-    pub response: Response,
-    pub result: DocumentDiagnosticReport,
-}
-#[derive(Serialize, Deserialize, Debug)]
 pub struct DocumentDiagnosticReport {
     kind: String,
     #[serde(rename = "resultId")]
@@ -405,34 +267,15 @@ pub struct DocumentDiagnosticReport {
     pub related_documents: Option<Vec<String>>,
 }
 
-impl DocumentDiagnosticReportResponse {
-    pub fn new(
-        id: Option<u32>,
-        related_documents: Option<Vec<String>>,
-        kind: DiagnosticKind,
-        result_id: Option<String>,
-        items: Option<Vec<Diagnostic>>,
-    ) -> DocumentDiagnosticReportResponse {
-        DocumentDiagnosticReportResponse {
-            response: Response::new(id),
-            result: DocumentDiagnosticReport {
-                kind: kind.to_string(),
-                related_documents,
-                result_id,
-                items,
-            },
-        }
-    }
-}
 pub enum DiagnosticKind {
     Full,
-    Unchanged,
+    _Unchanged,
 }
 impl DiagnosticKind {
     pub fn to_string(self: &DiagnosticKind) -> String {
         match self {
             DiagnosticKind::Full => String::from("full"),
-            DiagnosticKind::Unchanged => String::from("unchanged"),
+            DiagnosticKind::_Unchanged => String::from("unchanged"),
         }
     }
 }

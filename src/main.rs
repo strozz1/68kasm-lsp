@@ -45,29 +45,29 @@ fn main() {
         }
     }
 }
-fn show_json(str: &[u8]) {
+fn _show_json(str: &[u8]) {
     info!("JSON:\n");
     info!("{:?}\n", String::from_utf8_lossy(str));
 }
 
-fn parse_request(data: &[u8]) -> Request {
-    let req: Request = serde_json::from_slice(data).expect("Error deserializing");
+fn parse_request(data: &[u8]) -> requests::Request {
+    let req: requests::Request = serde_json::from_slice(data).expect("Error deserializing");
     req
 }
 
-fn manage_request(req: Request, state: &mut state::State) -> Option<String> {
+fn manage_request(req: requests::Request, state: &mut state::State) -> Option<String> {
     info!("Method: '{}'\n", req.method);
     match &req.method[..] {
         "textDocument/didOpen" => {
             let td = req.params.text_document?;
             let uri = td.uri;
             let text = td.text?;
-            info!("File opened: {}: length: {}\n", uri,text.len());
+            info!("File opened: {}: length: {}\n", uri, text.len());
             state.open_document(uri, text);
             None
         }
         "initialize" => {
-            let res = InitializeResponse::new(req.id);
+            let res = response::InitializeResponse::new(req.id);
             let r = rpc::encode(res);
             Some(r)
         }
@@ -87,48 +87,52 @@ fn manage_request(req: Request, state: &mut state::State) -> Option<String> {
             info!("Hover\n");
             let pos = req.params.position?;
             let hover = state.hover(pos)?;
-            let hover_resp = HoverResponse::new(req.id, hover);
+            let hover_resp = response::HoverResponse::new(req.id, hover);
             let r = rpc::encode(hover_resp);
             Some(r)
         }
         "textDocument/definition" => {
             info!("definition request\n");
 
-
             let doc = req.params.text_document?;
-            let loc=state.definition(doc)?;
-            let res = DefinitionResponse::new(req.id, loc);
+            let loc = state.definition(doc)?;
+            let res = response::DefinitionResponse::new(req.id, loc);
             let r = rpc::encode(res);
             Some(r)
         }
 
-        "textDocument/semanticTokens"=>{
+        "textDocument/semanticTokens" => {
             info!("SemanticTokens request\n");
-            let doc=req.params.text_document?;
-            let tk=state.tokens_full(doc,None)?;
-            let res=SemanticTokenResponse{
-                response:Response::new(req.id),
-                result:tk
+            let doc = req.params.text_document?;
+            let tk = state.tokens_full(doc, None)?;
+            let res = response::SemanticTokenResponse {
+                response: response::Response::new(req.id),
+                result: tk,
             };
             let r = rpc::encode(res);
 
             Some(r)
         }
-        "textDocument/semanticTokens/full"=>{
+        "textDocument/semanticTokens/full" => {
             info!("Full SemanticTokens request\n");
-            let doc=req.params.text_document?;
-            let tk=state.tokens_full(doc,None)?;
-            let res=SemanticTokenResponse{
-                response:Response::new(req.id),
-                result:tk
+            let doc = req.params.text_document?;
+            let tk = state.tokens_full(doc, None)?;
+            let res = response::SemanticTokenResponse {
+                response: response::Response::new(req.id),
+                result: tk,
             };
             let r = rpc::encode(res);
             Some(r)
         }
-        "textDocument/diagnostic"=>{
+        "textDocument/diagnostic" => {
             info!("Request diagnostic\n");
-            let doc=req.params.text_document?;
-            let res=state.diagnostics(req.id,doc,req.params.identifier,req.params.previous_result_id)?;
+            let doc = req.params.text_document?;
+            let res = state.diagnostics(
+                req.id,
+                doc,
+                req.params.identifier,
+                req.params.previous_result_id,
+            )?;
             let r = rpc::encode(res);
             Some(r)
         }

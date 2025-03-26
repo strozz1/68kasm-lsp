@@ -67,11 +67,11 @@ impl State {
         doc: TextDocumentItem,
         _identifier: Option<String>,
         prev_res_id: Option<String>,
-    ) -> Option<DocumentDiagnosticReportResponse> {
+    ) -> Option<response::DocumentDiagnosticReportResponse> {
         let kind = DiagnosticKind::Full;
         let related_docs = None;
         let items = self.get_diagnostics(doc);
-        let res = DocumentDiagnosticReportResponse::new(id, related_docs, kind, prev_res_id, items);
+        let res = response::DocumentDiagnosticReportResponse::new(id, related_docs, kind, prev_res_id, items);
         Some(res)
     }
 

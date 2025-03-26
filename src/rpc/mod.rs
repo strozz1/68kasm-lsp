@@ -16,13 +16,11 @@ pub fn encode(content:impl Serialize)->String{
     let a =format!("Content-Type: application/json\r\nContent-Length: {}\r\n\r\n{}", v.len(),v);
     a
 }
-pub fn decode(msg: &str)->Message{
-
+pub fn _decode(msg: &str)->Message{
    let parts: Vec<&str> = msg.split(r"\r\n\r\n").collect();
    let _length:i32=parts.first().unwrap()[17..].parse().unwrap();
    let v: Message= serde_json::from_str(parts.get(1).unwrap()).unwrap();
     v
-    
 }
 
 #[cfg(test)]
@@ -47,7 +45,7 @@ mod tests{
     fn test_decoding(){
         let expected=Message{method:"hi".to_string()};
         let ac= r#"Content-Length: 15\r\n\r\n{"method":"hi"}"#;
-        let actual=decode(ac);
+        let actual=_decode(ac);
 
         assert_eq!(actual,expected);
     }
