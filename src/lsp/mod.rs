@@ -49,12 +49,23 @@ impl InitializeResponse {
             static_registration_options: sta,
             text_document_registration_opts: tops,
         };
+        let diagnostic = DiagnosticOptions {
+            identifier: None,
+            inter_file_dependencies: false,
+            work_space_diagnostics: false,
+        };
+        let diag_reg = DiagnosticRegistrationOptions {
+            id: Some("sad1:".to_string()),
+            opts: diagnostic,
+            document_selector: None,
+        };
         let server_cap = ServerCapabilities {
             hover_provider: Some(true),
             text_document_sync: 1,
             document_highlight_provider: Some(true),
             definition_provider: Some(true),
             semantic_tokens_provider: Some(reg),
+            diagnostics_provider: Some(diag_reg),
         };
         let server_info: ServerInfo = ServerInfo {
             name: String::from("68kasm server"),
@@ -89,6 +100,11 @@ pub struct Params {
 
     //for TextDocumentPositionParams
     pub position: Option<Position>,
+
+    // diagnosis
+    pub identifier: Option<String>,
+    #[serde(rename = "previousResultId")]
+    pub previous_result_id: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -123,6 +139,8 @@ pub struct ServerCapabilities {
     pub definition_provider: Option<bool>,
     #[serde(rename = "semanticTokensProvider")]
     pub semantic_tokens_provider: Option<SemanticTokensRegistrationOptions>,
+    #[serde(rename = "diagnosticProvider")]
+    pub diagnostics_provider: Option<DiagnosticRegistrationOptions>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -142,12 +160,12 @@ pub struct TextDocumentContentChange {
     pub text: String,
 }
 
-#[derive(Serialize, Deserialize, Debug,PartialEq,Clone)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct Position {
     pub line: u32,
     pub character: u32,
 }
-#[derive(Serialize, Deserialize, Debug,PartialEq)]
+#[derive(Serialize,Clone, Deserialize, Debug, PartialEq)]
 pub struct Range {
     pub start: Position,
     pub end: Position,
@@ -163,7 +181,7 @@ impl Range {
             None => 0,
         }
     }
- pub fn first(opt: &Option<Range>) -> usize {
+    pub fn first(opt: &Option<Range>) -> usize {
         match opt {
             Some(r) => r.start.character as usize,
             None => 0,
@@ -320,4 +338,101 @@ pub struct SemanticTokenResponse {
     #[serde(flatten)]
     pub response: Response,
     pub result: SemanticTokens,
+}
+#[derive(Serialize, Deserialize, Debug)]
+pub struct DiagnosticOptions {
+    identifier: Option<String>,
+    #[serde(rename = "interFileDependencies")]
+    inter_file_dependencies: bool,
+    #[serde(rename = "workSpaceDiagnostics")]
+    work_space_diagnostics: bool,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct DiagnosticRegistrationOptions {
+    #[serde(flatten)]
+    opts: DiagnosticOptions,
+    #[serde(rename = "documentSelector")]
+    document_selector: Option<Vec<DocumentFilter>>,
+    id: Option<String>,
+}
+/**
+ Represents a diagnostics, such as a compoler error or warning.
+*/
+#[derive(Serialize, Deserialize, Debug)]
+pub struct Diagnostic {
+    pub range: Range,
+    severity: Option<usize>,
+    pub code: Option<u32>,
+    #[serde(rename = "codeDescription")]
+    pub code_description: Option<String>,
+    pub source: Option<String>,
+    pub message: String,
+    //pub tags: Option<Vec<DiagnosticTag>>,
+    //data: LSPany
+}
+#[derive(Serialize, Deserialize, Debug)]
+pub enum DiagnosticSeverity {
+    Error,
+    Warning,
+    Information,
+    Hint,
+}
+impl DiagnosticSeverity {
+    pub fn idx(self: &DiagnosticSeverity) -> usize {
+        match self {
+            DiagnosticSeverity::Error => 1,
+            DiagnosticSeverity::Warning => 2,
+            DiagnosticSeverity::Information => 3,
+            DiagnosticSeverity::Hint => 4,
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct DocumentDiagnosticReportResponse {
+    #[serde(flatten)]
+    pub response: Response,
+    pub result: DocumentDiagnosticReport,
+}
+#[derive(Serialize, Deserialize, Debug)]
+pub struct DocumentDiagnosticReport {
+    kind: String,
+    #[serde(rename = "resultId")]
+    pub result_id: Option<String>,
+    pub items: Option<Vec<Diagnostic>>,
+    #[serde(rename = "relatedDocuments")]
+    pub related_documents: Option<Vec<String>>,
+}
+
+impl DocumentDiagnosticReportResponse {
+    pub fn new(
+        id: Option<u32>,
+        related_documents: Option<Vec<String>>,
+        kind: DiagnosticKind,
+        result_id: Option<String>,
+        items: Option<Vec<Diagnostic>>,
+    ) -> DocumentDiagnosticReportResponse {
+        DocumentDiagnosticReportResponse {
+            response: Response::new(id),
+            result: DocumentDiagnosticReport {
+                kind: kind.to_string(),
+                related_documents,
+                result_id,
+                items,
+            },
+        }
+    }
+}
+pub enum DiagnosticKind {
+    Full,
+    Unchanged,
+}
+impl DiagnosticKind {
+    pub fn to_string(self: &DiagnosticKind) -> String {
+        match self {
+            DiagnosticKind::Full => String::from("full"),
+            DiagnosticKind::Unchanged => String::from("unchanged"),
+        }
+    }
 }

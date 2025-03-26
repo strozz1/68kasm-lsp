@@ -1,7 +1,7 @@
 use log::info;
 use log4rs;
 use lsp::*;
-use std::io::{self, BufRead, BufReader, BufWriter, Cursor, Read, Write};
+use std::io::{self, BufRead, BufReader, BufWriter, Read, Write};
 mod lexer;
 mod lsp;
 mod rpc;
@@ -63,7 +63,7 @@ fn manage_request(req: Request, state: &mut state::State) -> Option<String> {
             let td = req.params.text_document?;
             let uri = td.uri;
             let text = td.text?;
-            info!("File opened: {}\n", uri);
+            info!("File opened: {}: length: {}\n", uri,text.len());
             state.open_document(uri, text);
             None
         }
@@ -123,6 +123,13 @@ fn manage_request(req: Request, state: &mut state::State) -> Option<String> {
                 response:Response::new(req.id),
                 result:tk
             };
+            let r = rpc::encode(res);
+            Some(r)
+        }
+        "textDocument/diagnostic"=>{
+            info!("Request diagnostic\n");
+            let doc=req.params.text_document?;
+            let res=state.diagnostics(req.id,doc,req.params.identifier,req.params.previous_result_id)?;
             let r = rpc::encode(res);
             Some(r)
         }

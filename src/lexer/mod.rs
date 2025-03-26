@@ -1,6 +1,5 @@
 use super::lsp::{Position, Range};
-use log::info;
-
+pub mod language;
 pub fn tokenize(data: &str) -> Vec<TkLine> {
     let mut lines: Vec<TkLine> = Vec::new();
     for (idx, l) in data.lines().enumerate() {
@@ -30,22 +29,20 @@ impl TkLine {
     pub fn is_empty(self: &TkLine) -> bool {
         return self.original.trim() == "";
     }
+    pub fn get_op(self: &TkLine) -> Option<&str> {
+        let op = self.operation.clone()?;
+        return Some(&self.original[op.start.character as usize..op.end.character as usize]);
+    }
 }
 
 pub fn tokenize_line(line: String, lnum: u32) -> TkLine {
     if line.len() == 0 {
         return TkLine::empty();
     }
+    let cmt = search_comment(&line, lnum, 0);
+    let trim_right = Range::first(&cmt);
     let mut len = 0;
-    let mut trim_right = line.len();
-    let cmt: Option<Range> = if len < trim_right {
-        //still chars
-        let cmt = search_comment(&line[len..], lnum, len);
-        trim_right = Range::first(&cmt);
-        cmt
-    } else {
-        None
-    };
+
     let label: Option<Range> = if len < trim_right {
         let label = search_label(&line, lnum, len);
         len = Range::last(&label);
@@ -118,9 +115,9 @@ fn search_op(line: &str, lnum: u32, start: usize) -> Option<Range> {
         }
         let mut index2 = line[index.0..]
             .char_indices()
-            .find(|&(_, c)| c == ' ' || c == '\t')
+            .find(|&(_, c)| c == ' ' || c == '\t' )
             .map(|(index, _)| index)
-            .unwrap_or_else(|| line.len());
+            .unwrap_or_else(|| line[index.0..].len());
         if index2 >= line.len() {
             index2 = line.len()
         }
