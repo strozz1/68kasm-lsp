@@ -59,11 +59,15 @@ fn manage_request(req: requests::Request, state: &mut state::State) -> Option<St
     info!("Method: '{}'\n", req.method);
     match &req.method[..] {
         "textDocument/didOpen" => {
-            let td = req.params.text_document?;
+            let td = req.params.unwrap().text_document?;
             let uri = td.uri;
             let text = td.text?;
             info!("File opened: {}: length: {}\n", uri, text.len());
             state.open_document(uri, text);
+            None
+        }
+        "shutdown"=>{
+            info!("Closing server.");
             None
         }
         "initialize" => {
@@ -76,16 +80,17 @@ fn manage_request(req: requests::Request, state: &mut state::State) -> Option<St
             None
         }
         "textDocument/didChange" => {
-            let td = req.params.text_document?;
+            let params= req.params.unwrap();
+            let td = params.text_document?;
             let uri = td.uri;
-            let text = req.params.text_document_change?;
+            let text =params.text_document_change?;
             info!("File changed: {}\n", uri);
             state.edit_document(uri, text.as_slice()[0].text.clone());
             None
         }
         "textDocument/hover" => {
             info!("Hover\n");
-            let pos = req.params.position?;
+            let pos = req.params.unwrap().position?;
             let hover = state.hover(pos)?;
             let hover_resp = response::HoverResponse::new(req.id, hover);
             let r = rpc::encode(hover_resp);
@@ -94,7 +99,7 @@ fn manage_request(req: requests::Request, state: &mut state::State) -> Option<St
         "textDocument/definition" => {
             info!("definition request\n");
 
-            let doc = req.params.text_document?;
+            let doc = req.params.unwrap().text_document?;
             let loc = state.definition(doc)?;
             let res = response::DefinitionResponse::new(req.id, loc);
             let r = rpc::encode(res);
@@ -103,7 +108,7 @@ fn manage_request(req: requests::Request, state: &mut state::State) -> Option<St
 
         "textDocument/semanticTokens" => {
             info!("SemanticTokens request\n");
-            let doc = req.params.text_document?;
+            let doc = req.params.unwrap().text_document?;
             let tk = state.tokens_full(doc, None)?;
             let res = response::SemanticTokenResponse {
                 response: response::Response::new(req.id),
@@ -115,7 +120,7 @@ fn manage_request(req: requests::Request, state: &mut state::State) -> Option<St
         }
         "textDocument/semanticTokens/full" => {
             info!("Full SemanticTokens request\n");
-            let doc = req.params.text_document?;
+            let doc = req.params.unwrap().text_document?;
             let tk = state.tokens_full(doc, None)?;
             let res = response::SemanticTokenResponse {
                 response: response::Response::new(req.id),
@@ -126,12 +131,13 @@ fn manage_request(req: requests::Request, state: &mut state::State) -> Option<St
         }
         "textDocument/diagnostic" => {
             info!("Request diagnostic\n");
-            let doc = req.params.text_document?;
+            let params=req.params.unwrap();
+            let doc = params.text_document?;
             let res = state.diagnostics(
                 req.id,
                 doc,
-                req.params.identifier,
-                req.params.previous_result_id,
+                params.identifier,
+               params.previous_result_id,
             )?;
             let r = rpc::encode(res);
             Some(r)

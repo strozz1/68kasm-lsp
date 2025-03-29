@@ -4,5 +4,5 @@ pub struct Request {
     pub jsonrpc: String,
     pub id: Option<u32>,
     pub method: String,
-    pub params: Params,
+    pub params: Option<Params>,
 }

@@ -1,43 +1,59 @@
 use super::lsp::{Position, Range};
 pub mod language;
-pub fn tokenize(data: &str) -> Vec<TkLine> {
-    let mut lines: Vec<TkLine> = Vec::new();
+pub fn tokenize<'a>(data: &str) -> Vec<TokenLine<'a>> {
+    let mut lines: Vec<TokenLine> = Vec::new();
     for (idx, l) in data.lines().enumerate() {
         let line = tokenize_line(l.to_string(), idx as u32);
         lines.push(line);
     }
     lines
 }
-#[derive(Debug)]
-pub struct TkLine {
+
+#[derive(Debug,Clone)]
+pub enum TokenType {
+    Label,
+    Instruction,
+    Operands,
+    Comment,
+}
+#[derive(Debug,Clone)]
+pub struct Token<'a> {
+    token_type: TokenType,
+    raw: &'a str,
+    instr_specs: Option<language::InstructionSpecs>,
+}
+#[derive(Debug,Clone)]
+pub struct TokenLine<'a> {
     pub label: Option<Range>,
     pub operation: Option<Range>,
     pub operand: Option<Range>,
     pub comment: Option<Range>,
     pub original: String,
+    pub instruction: Option<Token<'a>>,
 }
-impl TkLine {
-    fn empty() -> TkLine {
-        TkLine {
+impl<'a> TokenLine<'a> {
+    fn empty() -> TokenLine<'a> {
+        TokenLine {
             label: None,
             operand: None,
             operation: None,
             original: "".to_string(),
             comment: None,
+            instruction: None,
         }
     }
-    pub fn is_empty(self: &TkLine) -> bool {
+    pub fn is_empty(self: &TokenLine<'a>) -> bool {
         self.original.trim() == ""
     }
-    pub fn get_op(self: &TkLine) -> Option<&str> {
+    pub fn get_op(self: &TokenLine<'a>) -> Option<&str> {
         let op = self.operation.clone()?;
         Some(&self.original[op.start.character as usize..op.end.character as usize])
     }
 }
 
-pub fn tokenize_line(line: String, lnum: u32) -> TkLine {
+pub fn tokenize_line<'a>(line: String, lnum: u32) -> TokenLine<'a> {
     if line.is_empty() {
-        return TkLine::empty();
+        return TokenLine::empty();
     }
     let cmt = search_comment(&line, lnum, 0);
     let trim_right = Range::first(&cmt);
@@ -65,12 +81,13 @@ pub fn tokenize_line(line: String, lnum: u32) -> TkLine {
         None
     };
 
-    TkLine {
+    TokenLine {
         original: line,
         label,
         operation: op,
         operand: opds,
         comment: cmt,
+        instruction: None
     }
 
 }
@@ -164,7 +181,7 @@ mod test_tokenization {
     #[test]
     fn correct_tokenize() {
         let line = String::from("TEST: MOVE.L a,b *comment");
-        let a = TkLine {
+        let a = TokenLine {
             original: line.clone(),
             label: Some(Range::new(
                 Position {
@@ -206,6 +223,7 @@ mod test_tokenization {
                     character: line.len() as u32,
                 },
             )),
+            instruction:None
         };
         let b = tokenize_line(line, 0);
 
@@ -218,12 +236,13 @@ mod test_tokenization {
     #[test]
     fn empty_line() {
         let e = String::new();
-        let a = TkLine {
+        let a = TokenLine {
             label: None,
             operand: None,
             operation: None,
             original: String::new(),
             comment: None,
+            instruction: None,
         };
         let b = tokenize_line(e, 0);
 
