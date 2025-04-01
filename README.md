@@ -48,11 +48,32 @@ Make sure to copy the location of the binary, you will need it for the next step
 Now that you have the binary in your sistem, you need to do a little configuration on your code editor/IDE. The process varies between editors.
 #### Nvim setup
 The nvim setup varies depending on your current nvim configurations and plugins.
-
-In my case I use [nvim-lspconfig](https://github.com/neovim/nvim-lspconfig), so I will show how to set it up with this plugin.
-
 If you want to add another plugin setup, make a pull request.
-##### nvim-lspconfig
+
+First, you need to make nvim detect `.s` as an asm extension. I'm doing that using the following code:
+```lua
+-- Set up filetype detection for assembly files
+vim.filetype.add({
+  extension = {
+    s = "asm",      -- Recognize .s files as assembly
+    S = "asm",      -- Also handle uppercase .S files
+    asm = "asm",
+  }
+})
+```
+This is necessary for nvim to recognize the file extension.
+##### For nvim 0.11
+With the release of nvim 0.11, lsp config in now easier than ever. No need for plugins. 
+```lua
+-- 68kasm server
+vim.lsp.config('kasm_lsp', {
+    cmd = { "/home/strozzi/projects/lsp/target/debug/lsp" },
+    root_markers = { '.git' },
+    filetypes = { 'asm' },
+})
+vim.lsp.enable('kasm_lsp')
+```
+##### With nvim-lspconfig
 ```lua
 local lspconfig = require 'lspconfig'
 local configs = require 'lspconfig.configs'
