@@ -1,6 +1,8 @@
 # LSP server for 68000 assembly
 > [!WARNING]
-> The LSP is currently in development, I just implemented the minimal for now
+> The LSP is currently in development, I just implemented the minimal for now.
+> 
+> Because I made this project before learning anything about compilers, de analysis is not great and makes no sense. After the exams(Jan) I will apply all my new knowledge to improve it!
 
 The **68k LSP** is a LSP server implementation written in Rust for the 68k assembly language for the 68000 Motorola processor.
 
